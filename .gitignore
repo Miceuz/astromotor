@@ -1,6 +1,7 @@
 # Object files
 *.o
 *.ko
+*.i
 
 # Libraries
 *.lib
@@ -16,3 +17,5 @@
 *.exe
 *.out
 *.app
+*.elf
+*.s

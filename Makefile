@@ -14,7 +14,7 @@ FUSE_H  = 0xDD
 AVRDUDE = avrdude -c usbasp -P usb -p $(DEVICE) # edit this line for your programmer
 
 CFLAGS  = -Iusbdrv -I. -DDEBUG_LEVEL=0  -Os 
-CFLAGS += -ffunction-sections -fdata-sections -save-temps 
+CFLAGS += -ffunction-sections -fdata-sections -save-temps -finline-functions
 LDFLAGS += -Wl,--gc-sections,--relax
 
 OBJECTS = main.o

@@ -6,43 +6,96 @@
 #include <avr/sleep.h>
 #include <avr/eeprom.h>
 
+//Low power basic stepping
 uint8_t output[]={
-		0b00000001,
-		0b00000100,
-		0b00000010,
-		0b00001000
+	0b00000001,
+	0b00000100,
+	0b00000010,
+	0b00001000
+};
+
+//HIGH torque, high power stepping
+uint8_t output2[] = {
+	0b00000101,
+	0b00000110,
+	0b00001010,
+	0b00001001
 };
 
 volatile uint8_t doStep = 1;
+volatile int16_t speedAdjust = 0;
+
 ISR(TIM1_COMPA_vect) {
-	TIMSK1 &= _BV(OCIE1A);
+	TIMSK1 &= ~_BV(OCIE1A);
 	doStep = 1;
-	TCNT1 = 1;
+	TCNT1 = 0;
+//	PORTA ^= _BV(PA5);
 }
 
 ISR(TIM1_OVF_vect) {
+	TIFR1 |= _BV(OCF1A);
 	TIMSK1 |= _BV(OCIE1A);	
-	OCR1A = 33076;
+	OCR1A = 33076 + speedAdjust;
+}
+
+ISR(TIM1_COMPB_vect) {
+	doStep = 1;
+	TCNT1 = 0;
+}
+
+ISR(ADC_vect) {
+	speedAdjust = ADC - 512;
+}
+
+#define DIR_CW 1
+#define DIR_CCW -1
+
+inline static void setTrackSpeed() {
+	//step every 98611 timer ticks
+	//to achieve that, wait for timer overflow after 65535 ticks
+	//and then set compare match interrupt after 33076
+	TIMSK1 = _BV(TOIE1);
+	TCCR1B |= _BV(CS10);
+}
+
+inline static void setX2Speed() {
+	TIFR1 |= _BV(OCF1A) | _BV(OCF1B);
+	OCR1B = 49305;
+	TIMSK1 = _BV(OCIE1B);	
+	TCCR1B |= _BV(CS10);
+}
+
+inline static void setupADC() {
+	ADMUX |= 4; //read pot on ADC4
+	ADCSRA |= _BV(ADSC) | _BV(ADEN) | _BV(ADIE) | _BV(ADATE) | 7; //free running, interrupt enabled, the slowest clock speed
 }
 
 int main (void) {
-	TIMSK1 |= _BV(TOIE1);
-	TCCR1B |= _BV(CS10);
 	sei();
+	setTrackSpeed();	
+	setupADC();
+	
 	DDRA |= _BV(PA0) | _BV(PA1) | _BV(PA2) | _BV(PA3);
-	uint8_t i = 0;
+	int8_t i = 0;
+	int8_t direction = DIR_CCW;
+	
 	//int32_t steps = 10L*5760L;
 	while(1) {
 		if(doStep) {
-			PORTA = output[i];
-			i++;
-			if(i > 3){
-				i = 0;
+			PORTA &= 0b11110000; 
+			PORTA |= output2[i];
+			i = i + direction;
+			if(DIR_CW == direction) {
+				if(i > 3) {
+					i = 0;
+				}
+			} else {
+				if(i < 0){
+					i = 3;
+				}
 			}
 			doStep = 0;
 		}
-		_delay_ms(12);		
-		_delay_us(326);
 	}
 }
 

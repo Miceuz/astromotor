@@ -5,6 +5,16 @@
 #include <avr/wdt.h>
 #include <avr/sleep.h>
 #include <avr/eeprom.h>
+#include "debounce.h"
+
+#define TRUE 1
+#define FALSE 0
+
+#define FFWD_BUTTON PA4
+#define REW_BUTTON PA5
+
+volatile switch_t ffwdButton = {0xFF, FALSE, FALSE};
+volatile switch_t rewButton = {0xFF, FALSE, FALSE};
 
 //Low power basic stepping
 uint8_t stepProfile[]={
@@ -25,11 +35,15 @@ uint8_t stepProfile2[] = {
 volatile uint8_t doStep = 1;
 volatile int16_t speedAdjust = 0;
 
+#define DIR_CW 1
+#define DIR_CCW -1
+int8_t direction = DIR_CW;
+
 ISR(TIM1_COMPA_vect) {
 	TIMSK1 &= ~_BV(OCIE1A);
 	doStep = 1;
 	TCNT1 = 0;
-//	PORTA ^= _BV(PA5);
+	PORTA ^= _BV(PA6);
 }
 
 ISR(TIM1_OVF_vect) {
@@ -47,8 +61,15 @@ ISR(ADC_vect) {
 	speedAdjust = ADC - 512;
 }
 
-#define DIR_CW 1
-#define DIR_CCW -1
+ISR(TIM0_OVF_vect) {
+	debounce(&ffwdButton, &PINA, FFWD_BUTTON);
+	debounce(&rewButton, &PINA, REW_BUTTON);
+}
+
+inline static void setupDebouncer() {
+	TIMSK0 = _BV(TOIE0);
+	TCCR0B |= _BV(CS00) | _BV(CS02);
+}
 
 inline static void setTrackSpeed() {
 	//step every 98611 timer ticks
@@ -66,18 +87,37 @@ inline static void setX2Speed() {
 }
 
 inline static void setupADC() {
-	ADMUX |= 4; //read pot on ADC4
+	ADMUX |= 7; //read pot on ADC7
 	ADCSRA |= _BV(ADSC) | _BV(ADEN) | _BV(ADIE) | _BV(ADATE) | 7; //free running, interrupt enabled, the slowest clock speed
+}
+
+void onFFWDButtonPressed(){
+	setX2Speed();
+}
+
+void onFFWDButtonReleased(){
+	setTrackSpeed();
+}
+
+void onREWButtonPressed(){
+	setX2Speed();
+	direction = DIR_CCW;
+}
+
+void onREWButtonReleased(){
+	setTrackSpeed();
+	direction = DIR_CW;
 }
 
 int main (void) {
 	sei();
 	setTrackSpeed();	
 	setupADC();
+	setupDebouncer();
 	
-	DDRA |= _BV(PA0) | _BV(PA1) | _BV(PA2) | _BV(PA3);
+	DDRA |= _BV(PA0) | _BV(PA1) | _BV(PA2) | _BV(PA3) | _BV(PA6);
+	PORTA |= _BV(FFWD_BUTTON) | _BV(REW_BUTTON);
 	int8_t i = 0;
-	int8_t direction = DIR_CCW;
 	
 	//int32_t steps = 10L*5760L;
 	while(1) {
@@ -96,6 +136,7 @@ int main (void) {
 			}
 			doStep = 0;
 		}
+        serviceButton(&ffwdButton, onFFWDButtonPressed, onFFWDButtonReleased);
+        serviceButton(&rewButton, onREWButtonPressed, onREWButtonReleased);
 	}
 }
-

@@ -17,7 +17,7 @@ CFLAGS  = -Iusbdrv -I. -DDEBUG_LEVEL=0  -Os
 CFLAGS += -ffunction-sections -fdata-sections -save-temps -finline-functions
 LDFLAGS += -Wl,--gc-sections,--relax
 
-OBJECTS = main.o
+OBJECTS = main.o debounce.o
 
 COMPILE = avr-gcc -DF_CPU=$(F_CPU) $(CFLAGS) $(LDFLAGS) -mmcu=$(DEVICE)  
 

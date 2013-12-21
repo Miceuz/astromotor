@@ -7,7 +7,7 @@
 #include <avr/eeprom.h>
 
 //Low power basic stepping
-uint8_t output[]={
+uint8_t stepProfile[]={
 	0b00000001,
 	0b00000100,
 	0b00000010,
@@ -15,7 +15,7 @@ uint8_t output[]={
 };
 
 //HIGH torque, high power stepping
-uint8_t output2[] = {
+uint8_t stepProfile2[] = {
 	0b00000101,
 	0b00000110,
 	0b00001010,
@@ -83,7 +83,7 @@ int main (void) {
 	while(1) {
 		if(doStep) {
 			PORTA &= 0b11110000; 
-			PORTA |= output2[i];
+			PORTA |= stepProfile2[i];
 			i = i + direction;
 			if(DIR_CW == direction) {
 				if(i > 3) {

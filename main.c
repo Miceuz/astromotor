@@ -37,7 +37,8 @@ volatile int16_t speedAdjust = 0;
 
 #define DIR_CW 1
 #define DIR_CCW -1
-int8_t direction = DIR_CW;
+
+int8_t direction = DIR_CCW;
 
 ISR(TIM1_COMPA_vect) {
 	TIMSK1 &= ~_BV(OCIE1A);
@@ -101,12 +102,12 @@ void onFFWDButtonReleased(){
 
 void onREWButtonPressed(){
 	setX2Speed();
-	direction = DIR_CCW;
+	direction = DIR_CW;
 }
 
 void onREWButtonReleased(){
 	setTrackSpeed();
-	direction = DIR_CW;
+	direction = DIR_CCW;
 }
 
 int main (void) {
@@ -122,8 +123,6 @@ int main (void) {
 	//int32_t steps = 10L*5760L;
 	while(1) {
 		if(doStep) {
-			PORTA &= 0b11110000; 
-			PORTA |= stepProfile2[i];
 			i = i + direction;
 			if(DIR_CW == direction) {
 				if(i > 3) {
@@ -134,6 +133,8 @@ int main (void) {
 					i = 3;
 				}
 			}
+			PORTA &= 0b11110000; 
+			PORTA |= stepProfile2[i];
 			doStep = 0;
 		}
         serviceButton(&ffwdButton, onFFWDButtonPressed, onFFWDButtonReleased);
